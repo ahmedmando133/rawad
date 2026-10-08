@@ -1,0 +1,68 @@
+# =============================================================================
+# DOCTOR PROFILE — STRICT SOURCE OF TRUTH
+# -----------------------------------------------------------------------------
+# This file is the ONLY authoritative source of facts about the doctor and the
+# clinic. The assistant must NEVER invent, guess, or infer anything not written
+# here.
+# =============================================================================
+
+doctor:
+  name:
+    ar: "الدكتور رواد شحيمة"
+    en: "Dr. Rawad Shehima"
+  title: "طبيب أطفال وحديثي الولادة"
+  specialty: "طب الأطفال ورعاية حديثي الولادة"
+  sub_specialties:
+    - "رعاية ومتابعة نمو الرضع وحديثي الولادة"
+    - "أمراض الصدر والجهاز التنفسي عند الأطفال"
+  qualifications:
+    - "بكالوريوس طب وجراحة عامة"
+    - "طبيب ممارس في طب الأطفال"
+  languages_spoken:
+    - "العربية"
+    - "الإنجليزية"
+
+clinic:
+  name:
+    ar: "مجمع عيادات الرباط"
+    en: "Al-Ribat Polyclinic"
+  city: "طرابلس / تاجوراء"
+  address:
+    ar: "تاجوراء، الطريق الوسطى، بالقرب من المجلس البلدي تاجوراء"
+    en: "Tajoura, Middle Road, near Tajoura Municipal Council"
+  landmarks: "بالقرب من المجلس البلدي تاجوراء"
+  google_maps_url: ""
+
+contact:
+  phone: "0914107262"
+  whatsapp: "0914107262"
+  facebook_page_url: "https://www.facebook.com/profile.php?id=61571726500705"
+
+working_hours:
+  timezone: "Africa/Tripoli"
+  # مواعيد تواجد الدكتور رواد شحيمة بالعيادة
+  saturday: "مساءً"
+  sunday: "مغلق / غير متواجد"
+  monday: "مغلق / غير متواجد"
+  tuesday: "طوال اليوم (24 ساعة)"
+  wednesday: "مغلق / غير متواجد"
+  thursday: "طوال اليوم (24 ساعة)"
+  friday: "مغلق / غير متواجد"
+  notes: "مواعيد د. رواد شحيمة في مجمع عيادات الرباط: السبت (الفترة المسائية)، الثلاثاء (طوال اليوم 24 ساعة)، والخميس (طوال اليوم 24 ساعة)."
+
+appointments:
+  booking_method: "الاتصال هاتفياً أو المراسلة عبر الواتساب على الرقم 0914107262"
+  walk_ins_accepted: true
+  consultation_fee: "غير معلن (يرجى الاستفسار هاتفياً)"
+  notes: "سعر الكشف غير معلن في الصفحة، ونفيد الأهل بالتواصل هاتفياً للاستفسار."
+
+services:
+  - "كشف ومتابعة صحة ونمو الأطفال"
+  - "متابعة حديثي الولادة والرضع"
+  - "علاج أمراض الصدر والجهاز التنفسي للأطفال (الكروب، النزلات، الكحة)"
+  - "علاج النزلات المعوية وحالات الجفاف والحرارة"
+  - "الإرشاد الصحي والوقائي للأمهات"
+
+emergency:
+  emergency_number: "0914107262"
+  nearest_emergency_facility: "طوارئ مستشفى تاجوراء أو طوارئ مستشفى الأطفال طرابلس"

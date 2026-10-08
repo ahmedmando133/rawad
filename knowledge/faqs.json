@@ -1,0 +1,77 @@
+[
+  {
+    "id": "clinic_location",
+    "category": "location",
+    "question": {
+      "ar": "وين مكان العيادة؟",
+      "en": "Where is the clinic located?"
+    },
+    "answer": {
+      "ar": "عيادة الدكتور رواد شحيمة في مجمع عيادات الرباط، تاجوراء - الطريق الوسطى، بالقرب من المجلس البلدي تاجوراء 📍",
+      "en": "Dr. Rawad Shehima's clinic is at Al-Ribat Clinics Complex, Tajoura - Middle Road, near Tajoura Municipal Council."
+    },
+    "keywords": ["مكان", "وين", "عنوان", "العنوان", "موقع", "وينكم", "مقر", "تاجوراء"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-08"
+  },
+  {
+    "id": "working_days",
+    "category": "hours",
+    "question": {
+      "ar": "شنو أيام وأوقات الدوام؟",
+      "en": "What are the working days and hours?"
+    },
+    "answer": {
+      "ar": "مواعيد د. رواد شحيمة في مجمع عيادات الرباط:\n- السبت: الفترة المسائية\n- الثلاثاء: طوال اليوم (24 ساعة)\n- الخميس: طوال اليوم (24 ساعة) 🌷",
+      "en": "Dr. Rawad Shehima's schedule at Al-Ribat Polyclinic: Saturday (Evening), Tuesday (24h all day), Thursday (24h all day)."
+    },
+    "keywords": ["أوقات", "اوقات", "مواعيد", "ساعات", "دوام", "امتى", "تفتحوا", "السبت", "الثلاثاء", "الخميس", "ايام"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-08"
+  },
+  {
+    "id": "how_to_book",
+    "category": "booking",
+    "question": {
+      "ar": "كيفاش نحجز موعد ورقم التليفون؟",
+      "en": "How do I book an appointment and contact number?"
+    },
+    "answer": {
+      "ar": "تقدر تحجز أو تستفسر بالاتصال أو المراسلة واتساب على الرقم: 0914107262 🙏",
+      "en": "You can book or inquire by calling or on WhatsApp at: 0914107262."
+    },
+    "keywords": ["حجز", "نحجز", "رقم", "تليفون", "هاتف", "واتساب", "واتس", "موبايل", "نتصل"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-08"
+  },
+  {
+    "id": "consultation_fee",
+    "category": "fees",
+    "question": {
+      "ar": "قداش سعر الكشف؟",
+      "en": "How much is the consultation fee?"
+    },
+    "answer": {
+      "ar": "سعر الكشف غير معلن في الصفحة، تقدر تتواصل مباشرة مع العيادة للاستفسار على الرقم: 0914107262 🌷",
+      "en": "The consultation fee is not publicly announced. Please contact the clinic directly at 0914107262."
+    },
+    "keywords": ["سعر", "بكم", "قداش", "كشف", "الكشف", "فلوس", "معاينة", "تكلفة"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-08"
+  },
+  {
+    "id": "doctor_identity",
+    "category": "doctor",
+    "question": {
+      "ar": "من الدكتور وشنو تخصصه؟",
+      "en": "Who is the doctor and what is his specialty?"
+    },
+    "answer": {
+      "ar": "الدكتور رواد شحيمة، طبيب أطفال وحديثي الولادة بمجمع عيادات الرباط بتاجوراء 🌷",
+      "en": "Dr. Rawad Shehima, Pediatrician and Newborn care physician at Al-Ribat Polyclinic in Tajoura."
+    },
+    "keywords": ["دكتور", "الدكتور", "تخصص", "اسم", "رواد", "شحيمة"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-08"
+  }
+]

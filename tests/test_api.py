@@ -4,20 +4,34 @@ Integration tests for FastAPI Webhook endpoints using TestClient.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, r"c:\antigravity learning")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from unittest.mock import AsyncMock, patch
+
 from fastapi.testclient import TestClient
 
-# Ensure test verify token is configured
-os.environ["META_VERIFY_TOKEN"] = "test_secret_verify_token_123"
+# Configure test secrets BEFORE importing the app so verification is exercised.
+TEST_VERIFY_TOKEN = "test_secret_verify_token_123"
+TEST_APP_SECRET = "test_app_secret_456"
+os.environ["META_VERIFY_TOKEN"] = TEST_VERIFY_TOKEN
+os.environ["META_APP_SECRET"] = TEST_APP_SECRET
 
 from api.main import app
 
 client = TestClient(app)
+
+
+def _sign(raw_body: bytes) -> dict[str, str]:
+    digest = hmac.new(TEST_APP_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+    return {"X-Hub-Signature-256": f"sha256={digest}"}
 
 
 def test_root_and_health():
@@ -51,6 +65,22 @@ def test_webhook_verification_invalid_token():
     assert response.status_code == 403
 
 
+def test_webhook_post_rejects_invalid_signature():
+    payload = {"object": "page", "entry": []}
+    raw = json.dumps(payload).encode()
+    response = client.post(
+        "/webhook", content=raw, headers={"X-Hub-Signature-256": "sha256=deadbeef"}
+    )
+    assert response.status_code == 403
+
+
+def test_webhook_post_rejects_missing_signature():
+    payload = {"object": "page", "entry": []}
+    raw = json.dumps(payload).encode()
+    response = client.post("/webhook", content=raw)
+    assert response.status_code == 403
+
+
 def test_webhook_post_message_received():
     payload = {
         "object": "page",
@@ -72,6 +102,7 @@ def test_webhook_post_message_received():
             }
         ],
     }
+    raw = json.dumps(payload).encode()
 
     # Mock messenger network call so test is 100% offline
     with patch("api.webhook.MessengerClient.send_text_message", new_callable=AsyncMock) as mock_send, \
@@ -79,7 +110,7 @@ def test_webhook_post_message_received():
         mock_send.return_value = True
         mock_type.return_value = True
 
-        response = client.post("/webhook", json=payload)
+        response = client.post("/webhook", content=raw, headers=_sign(raw))
         assert response.status_code == 200
         assert response.json() == {"status": "EVENT_RECEIVED"}
 

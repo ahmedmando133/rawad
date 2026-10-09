@@ -43,12 +43,12 @@ KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_MODEL = "gemini-3.8-flash"
-DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_FALLBACK_MODEL = "gemini-flash-latest"
 DEFAULT_MAX_HISTORY_MESSAGES = 20  # user + model messages kept per conversation
 UNAVAILABLE = "UNAVAILABLE"
-REQUEST_TIMEOUT_MS = 30_000  # per HTTP attempt
-MAX_ATTEMPTS = 3             # total attempts on transient errors (429/5xx)
+REQUEST_TIMEOUT_MS = 20_000  # per HTTP attempt
+MAX_ATTEMPTS = 2             # total attempts per model on transient errors (429/5xx)
 
 # Matches a whole value that is still a template placeholder, e.g. "[PHONE]".
 _PLACEHOLDER_RE = re.compile(r"^\s*\[[A-Z0-9_]+\]\s*$")

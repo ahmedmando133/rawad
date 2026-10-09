@@ -8,13 +8,15 @@ Endpoints:
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import logging
 import os
 from collections import OrderedDict
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel
 
 from core.ai_engine import PediatricianAIAssistant
 from core.messenger import MessengerClient
@@ -44,6 +46,36 @@ def get_messenger() -> MessengerClient:
     if _messenger is None:
         _messenger = MessengerClient()
     return _messenger
+
+
+# --------------------------------------------------------------------------- #
+# 0. Payload authenticity (Meta X-Hub-Signature-256)
+# --------------------------------------------------------------------------- #
+def verify_meta_signature(raw_body: bytes, signature_header: str | None) -> bool:
+    """Validate Meta's HMAC-SHA256 signature over the raw request body.
+
+    Meta signs every webhook POST with the App Secret. Verifying it prevents
+    anyone who merely knows the callback URL from injecting fake messages.
+
+    If META_APP_SECRET is not configured we log a warning and allow the
+    request (so local development still works); in production the secret
+    MUST be set and the signature enforced.
+    """
+    app_secret = os.getenv("META_APP_SECRET", "").strip()
+    if not app_secret or app_secret.startswith("your_"):
+        logger.warning(
+            "META_APP_SECRET is not configured; skipping webhook signature check. "
+            "Set it in production to reject forged requests."
+        )
+        return True
+
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+
+    expected = "sha256=" + hmac.new(
+        app_secret.encode("utf-8"), raw_body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
 
 
 # --------------------------------------------------------------------------- #
@@ -104,8 +136,18 @@ async def receive_webhook(
     background_tasks: BackgroundTasks,
 ) -> dict[str, str]:
     """Receives event notifications from Meta. Returns 200 OK immediately."""
+    raw_body = await request.body()
+
+    # Reject forged payloads before doing any work.
+    if not verify_meta_signature(raw_body, request.headers.get("X-Hub-Signature-256")):
+        logger.warning("Rejected webhook POST with missing/invalid X-Hub-Signature-256.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid signature",
+        )
+
     try:
-        body: dict[str, Any] = await request.json()
+        body: dict[str, Any] = json.loads(raw_body)
     except Exception:
         return {"status": "INVALID_JSON"}
 

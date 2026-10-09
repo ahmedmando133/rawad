@@ -9,6 +9,7 @@ Provides:
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -51,11 +52,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Middleware (allows web dashboard or diagnostic tools)
+# CORS Middleware.
+# This is a server-to-server webhook backend with no browser client, so CORS is
+# closed by default. Configure comma-separated origins via CORS_ALLOW_ORIGINS
+# only if a dashboard needs to call the API from a browser.
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

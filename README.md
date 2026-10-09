@@ -85,13 +85,16 @@ Copy `.env.example` to `.env` and configure:
 # Meta Page Access Token (from Meta for Developers App -> Messenger API Setup)
 META_PAGE_ACCESS_TOKEN=your_page_access_token_here
 
+# Meta App Secret (App Settings -> Basic). Used to verify webhook signatures.
+META_APP_SECRET=your_meta_app_secret_here
+
 # Custom secret verify token you choose (e.g., rawad_clinic_secret_2026)
 META_VERIFY_TOKEN=rawad_clinic_secret_2026
 
 # Google Gemini API
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_FALLBACK_MODEL=gemini-3.5-flash
+GEMINI_MODEL=gemini-3.5-flash
+GEMINI_FALLBACK_MODEL=gemini-flash-latest
 ```
 
 ### 2. Start the FastAPI Server
@@ -102,6 +105,25 @@ Check health:
 ```powershell
 curl http://localhost:8000/health
 ```
+
+### 3. Run the Test Suite
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest tests/test_api.py -q
+```
+
+---
+
+## Security Notes
+
+- **Webhook signature verification**: incoming `POST /webhook` requests are validated
+  against Meta's `X-Hub-Signature-256` header using `META_APP_SECRET` (HMAC-SHA256).
+  Requests with a missing or invalid signature are rejected with `403`.
+  If `META_APP_SECRET` is not set, verification is skipped and a warning is logged —
+  **always set it in production**.
+- **CORS**: closed by default. Set `CORS_ALLOW_ORIGINS` (comma-separated) only if a
+  browser dashboard needs to call the API.
+- **Secrets**: `.env` is git-ignored. Never commit real tokens.
 
 ---
 

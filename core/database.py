@@ -139,29 +139,47 @@ class AssistantDatabase:
             conn.commit()
         logger.info("Database synced successfully with knowledge files.")
 
-    def find_direct_faq(self, user_message: str) -> str | None:
-        """Look for a direct match in approved FAQs based on normalized keywords."""
+    def get_fact(self, key: str) -> str | None:
+        """Return a single clinic fact by its dotted key (e.g. 'working_hours.saturday')."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM clinic_facts WHERE key = ?", (key,))
+            row = cursor.fetchone()
+            return row["value"] if row else None
+
+    def find_direct_faq(self, user_message: str) -> dict[str, str] | None:
+        """Best matching approved FAQ for `user_message`, or None.
+
+        Returns a mapping with the FAQ `id`, `category` and `answer` so callers
+        can special-case categories (e.g. make working hours today-aware).
+        """
         norm_query = normalize_arabic(user_message)
         words = set(norm_query.split())
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id, answer_ar, keywords FROM faqs WHERE approved = 1")
+            cursor.execute(
+                "SELECT id, category, answer_ar, keywords FROM faqs WHERE approved = 1"
+            )
             rows = cursor.fetchall()
 
-            best_match: str | None = None
+            best_match: dict[str, str] | None = None
             highest_score = 0
 
             for row in rows:
                 raw_keywords = row["keywords"] or ""
                 kw_list = [k.strip() for k in raw_keywords.split(",") if k.strip()]
                 norm_kws = [normalize_arabic(k) for k in kw_list]
-                
+
                 # Check for direct keyword overlap
                 matches = sum(1 for kw in norm_kws if kw in norm_query or kw in words)
                 if matches > highest_score and matches >= 1:
                     highest_score = matches
-                    best_match = row["answer_ar"]
+                    best_match = {
+                        "id": row["id"],
+                        "category": row["category"],
+                        "answer": row["answer_ar"],
+                    }
 
             return best_match
 

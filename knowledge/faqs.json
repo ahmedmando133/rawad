@@ -73,5 +73,35 @@
     "keywords": ["دكتور", "الدكتور", "تخصص", "اسم", "رواد", "شحيمة"],
     "approved_by_doctor": true,
     "last_reviewed": "2026-10-08"
+  },
+  {
+    "id": "clinic_services",
+    "category": "services",
+    "question": {
+      "ar": "شنو الخدمات اللي تقدمونها؟",
+      "en": "What services do you offer?"
+    },
+    "answer": {
+      "ar": "نقدم كشف ومتابعة صحة ونمو الأطفال، متابعة حديثي الولادة والرضع، علاج أمراض الصدر والجهاز التنفسي (الكروب، النزلات، الكحة)، علاج النزلات المعوية والجفاف والحرارة، والإرشاد الصحي للأمهات 🌷",
+      "en": "Pediatric check-ups and growth monitoring, newborn and infant care, respiratory conditions (croup, colds, cough), gastroenteritis/dehydration/fever, and preventive guidance for mothers."
+    },
+    "keywords": ["خدمات", "الخدمات", "خدمة", "خدمه", "بتعالجوا", "تعالجوا", "خدماتكم"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-13"
+  },
+  {
+    "id": "walk_in_policy",
+    "category": "booking",
+    "question": {
+      "ar": "نقدر نجي بدون موعد؟",
+      "en": "Can we come without an appointment?"
+    },
+    "answer": {
+      "ar": "نعم، تقدر تجي بدون موعد 🙏 ولو حاب تطمن على الزحمة تقدر تتصل أو تراسل واتساب على الرقم: 0914107262",
+      "en": "Yes, walk-ins are welcome. To check how busy it is, call or WhatsApp 0914107262."
+    },
+    "keywords": ["بدون موعد", "بلا موعد", "من غير موعد"],
+    "approved_by_doctor": true,
+    "last_reviewed": "2026-10-13"
   }
 ]

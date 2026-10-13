@@ -16,6 +16,14 @@ import re
 from dataclasses import dataclass
 from core.database import AssistantDatabase
 from core.safety_filter import normalize_arabic
+from core.timeutil import (
+    is_closed_value,
+    libya_now,
+    ordered_weekday_keys,
+    weekday_ar,
+    weekday_ar_index,
+    weekday_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +100,17 @@ class IntentRouter:
         # 1. Check direct FAQ matcher from Database
         faq_match = self.db.find_direct_faq(user_message)
         if faq_match:
+            # Working hours get a live "today" status instead of a static answer.
+            reply = (
+                self._hours_reply()
+                if faq_match["category"] == "hours"
+                else faq_match["answer"]
+            )
             logger.info("Direct FAQ matched in DB for query: %s", user_message[:30])
             return IntentRouteResult(
                 matched=True,
                 intent="faq_direct",
-                direct_reply=faq_match,
+                direct_reply=reply,
                 tokens_consumed=0,
             )
 
@@ -123,12 +137,7 @@ class IntentRouter:
                 "تاجوراء - الطريق الوسطى، بالقرب من المجلس البلدي تاجوراء 📍"
             )
         if intent == "hours":
-            return (
-                "مواعيد د. رواد شحيمة في مجمع عيادات الرباط:\n"
-                "• السبت: الفترة المسائية\n"
-                "• الثلاثاء: طوال اليوم (24 ساعة)\n"
-                "• الخميس: طوال اليوم (24 ساعة) 🌷"
-            )
+            return self._hours_reply()
         if intent == "phone":
             return (
                 "تقدر تحجز وتستفسر بالاتصال أو المراسلة عبر الواتساب "
@@ -144,4 +153,44 @@ class IntentRouter:
                 "الدكتور رواد شحيمة، طبيب أطفال ورعاية حديثي الولادة "
                 "بمجمع عيادات الرباط بتاجوراء 🌷"
             )
+        return None
+
+    # ------------------------------------------------------------------ #
+    # Working hours (today-aware, still zero-token)
+    # ------------------------------------------------------------------ #
+    def _hours_reply(self) -> str:
+        base = (
+            "مواعيد د. رواد شحيمة في مجمع عيادات الرباط:\n"
+            "• السبت: الفترة المسائية\n"
+            "• الثلاثاء: طوال اليوم (24 ساعة)\n"
+            "• الخميس: طوال اليوم (24 ساعة) 🌷"
+        )
+        status = self._today_status()
+        if not status:
+            return base
+        return f"{status}\n{base}"
+
+    def _today_status(self) -> str | None:
+        """A one-line 'today' summary derived from the working_hours facts."""
+        now = libya_now()
+        today_value = self.db.get_fact(f"working_hours.{weekday_key(now)}")
+        if today_value is None:
+            return None  # No per-day data in the profile -> keep the static reply.
+
+        day_ar = weekday_ar(now)
+        if not is_closed_value(today_value):
+            return f"توا يوم {day_ar}، والدكتور متواجد {today_value}."
+
+        next_open = self._next_open_day(now.weekday())
+        if next_open:
+            return f"توا يوم {day_ar} العيادة مغلقة. أقرب دوام: {next_open}."
+        return f"توا يوم {day_ar} العيادة مغلقة."
+
+    def _next_open_day(self, today_index: int) -> str | None:
+        keys = ordered_weekday_keys()
+        for offset in range(1, 8):
+            index = (today_index + offset) % 7
+            value = self.db.get_fact(f"working_hours.{keys[index]}")
+            if value and not is_closed_value(value):
+                return f"{weekday_ar_index(index)} ({value})"
         return None

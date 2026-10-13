@@ -43,7 +43,7 @@ Built with **FastAPI**, **Google Gemini** (active conversational engine), **SQLi
 | Layer | Responsibility | Token Consumption |
 |---|---|---|
 | **Layer 1: Safety Filter** (`core/safety_filter.py`) | Detects 10 pediatric red flags (breathing, cyanosis, seizures, choking, dehydration, etc.). Bypasses LLM completely for instant life-safety guidance. | **0 Tokens** |
-| **Layer 2: Intent Router** (`core/intent_router.py` & `core/database.py`) | Intercepts routine queries (location, working hours, phone, fees, doctor title) and answers directly from SQLite DB. | **0 Tokens** |
+| **Layer 2: Intent Router** (`core/intent_router.py` & `core/database.py`) | Intercepts routine queries (location, services, working hours, phone, fees, doctor title) and answers directly from SQLite DB. Working-hours replies are **today-aware** (Libya, UTC+2). | **0 Tokens** |
 | **Layer 3: LLM Engine** (`core/ai_engine.py` + `core/llm_provider.py`) | Provides warm, conversational pediatric prevention advice in natural Libyan Arabic. Gemini is the active engine; Claude can be enabled as primary or fallback. | **Only when needed** |
 
 ---
@@ -61,7 +61,8 @@ c:\antigravity learning
 │   ├── database.py          # SQLite persistence for facts, FAQs, and chat sessions
 │   ├── intent_router.py     # Deterministic regex router for zero-token replies
 │   ├── messenger.py         # Async Meta Graph API client (typing indicator + send)
-│   └── safety_filter.py     # Pre-LLM red flag detector & Arabic normalizer
+│   ├── safety_filter.py     # Pre-LLM red flag detector & Arabic normalizer
+│   └── timeutil.py          # Libya (UTC+2) time helpers (today-aware replies)
 ├── data/
 │   └── clinic.db            # SQLite database file
 ├── knowledge/
@@ -72,6 +73,8 @@ c:\antigravity learning
 │   └── safety_guardrails.md # Non-negotiable clinical safety constraints
 ├── tests/
 │   ├── test_api.py          # Integration tests for FastAPI endpoints
+│   ├── test_ai_engine_history.py # Conversation-memory tests
+│   ├── test_ai_quality.py   # Time-awareness, FAQ & prompt-quality tests
 │   ├── test_llm_provider.py # Provider selection & message-format unit tests
 │   └── run_live_scenarios.py# Live guardrail & dialect test runner
 ├── requirements.txt         # Dependencies
@@ -154,6 +157,34 @@ pull request via GitHub Actions (`.github/workflows/ci.yml`) across Python
 
 ---
 
+## Deploying to Render (Blueprint)
+
+The repo ships a [`render.yaml`](render.yaml) Blueprint (Frankfurt region, Python
+runtime, `/health` health check).
+
+1. **Create the service** — open the Blueprint deeplink and connect the GitHub repo
+   [`ahmedmando133/rawad`](https://github.com/ahmedmando133/rawad):
+
+   `https://dashboard.render.com/blueprint/new?repo=https://github.com/ahmedmando133/rawad`
+
+2. **Enter the secrets** when prompted (declared `sync: false`, so they are never
+   committed):
+   * `GEMINI_API_KEY` — Google AI Studio key.
+   * `META_PAGE_ACCESS_TOKEN` — Meta for Developers → Messenger → API Setup.
+   * `META_APP_SECRET` — Meta App → Settings → Basic.
+   * `META_VERIFY_TOKEN` — any secret string you choose.
+
+3. **Apply** and wait for the first deploy to go live.
+
+4. Point Meta's webhook Callback URL at
+   `https://<your-service>.onrender.com/webhook` (see the next section).
+
+> **Free-plan caveat**: free web services sleep after ~15 minutes of inactivity,
+> which adds a cold-start delay to the first webhook delivery. Use the `starter`
+> plan for an always-responsive production bot.
+
+---
+
 ## Connecting with Meta Facebook Page
 
 1. **Expose your local server to the Internet** (e.g. via `ngrok` or `localtunnel`):
@@ -176,5 +207,5 @@ pull request via GitHub Actions (`.github/workflows/ci.yml`) across Python
 4. **Test on Messenger**:
    * Send a message to Dr. Rawad Shehima's Facebook page from your personal account:
      * *"وين مكان العيادة؟"* ➡️ Instant zero-token reply.
-     * *"امتى تفتحوا؟"* ➡️ Instant zero-token working hours.
+     * *"امتى تفتحوا؟"* ➡️ Instant zero-token working hours (today-aware).
      * *"ولدي حرارته 40 وصدره يصفر"* ➡️ Instant emergency escalation.

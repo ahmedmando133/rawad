@@ -2,7 +2,7 @@
 
 A production-ready AI-powered Facebook Page and Messenger Assistant for **Dr. Rawad Shehima (الدكتور رواد شحيمة)** at **Al-Ribat Polyclinic (مجمع عيادات الرباط)** in Tajoura, Tripoli, Libya.
 
-Built with **FastAPI**, **Google Gemini (3.8 & 3.5 Flash)**, **SQLite**, and the **Meta Graph API**.
+Built with **FastAPI**, **Google Gemini** (active conversational engine), **SQLite**, and the **Meta Graph API**. An optional **Anthropic Claude** engine is also supported and can be enabled via configuration.
 
 > ⚠️ **Clinical Safety Disclaimer**: This assistant is **not** a substitute for an in-person medical diagnosis. It strictly handles administrative questions (location, working hours, booking, contact), general non-diagnostic pediatric guidance, and instantly escalates any urgent symptoms (red flags) directly to hospital emergency departments.
 
@@ -31,9 +31,9 @@ Built with **FastAPI**, **Google Gemini (3.8 & 3.5 Flash)**, **SQLite**, and the
                                           │             (0 Tokens · No Hallucination)
                                           ▼ NO (Clinical / General Pediatric)
                    ┌──────────────────────────────────────────────┐
-                   │  Layer 3: Gemini Conversational Engine       │
-                   │  Primary: gemini-3.8-flash                   │
-                   │  Fallback: gemini-3.5-flash                  │
+                   │  Layer 3: LLM Conversational Engine          │
+                   │  Engine:  Gemini (gemini-3.5-flash)          │
+                   │  Optional: Claude (switch via AI_PROVIDER)   │
                    │  Grounded in Libyan Brand Voice & Profile    │
                    └──────────────────────────────────────────────┘
 ```
@@ -42,7 +42,7 @@ Built with **FastAPI**, **Google Gemini (3.8 & 3.5 Flash)**, **SQLite**, and the
 |---|---|---|
 | **Layer 1: Safety Filter** (`core/safety_filter.py`) | Detects 10 pediatric red flags (breathing, cyanosis, seizures, choking, dehydration, etc.). Bypasses LLM completely for instant life-safety guidance. | **0 Tokens** |
 | **Layer 2: Intent Router** (`core/intent_router.py` & `core/database.py`) | Intercepts routine queries (location, working hours, phone, fees, doctor title) and answers directly from SQLite DB. | **0 Tokens** |
-| **Layer 3: Gemini Engine** (`core/ai_engine.py`) | Provides warm, conversational pediatric prevention advice in natural Libyan Arabic with automatic fallback model on load spikes. | **Only when needed** |
+| **Layer 3: LLM Engine** (`core/ai_engine.py` + `core/llm_provider.py`) | Provides warm, conversational pediatric prevention advice in natural Libyan Arabic. Gemini is the active engine; Claude can be enabled as primary or fallback. | **Only when needed** |
 
 ---
 
@@ -54,7 +54,8 @@ c:\antigravity learning
 │   ├── main.py              # FastAPI app, lifespan, CORS, health checks
 │   └── webhook.py           # Meta Webhook (GET verification + POST background processing)
 ├── core/
-│   ├── ai_engine.py         # Multi-model Gemini orchestration (3.8 + 3.5 fallback)
+│   ├── ai_engine.py         # Layer 3 orchestration: safety → router → LLM
+│   ├── llm_provider.py      # Pluggable engines (Claude / Gemini) + fallbacks
 │   ├── database.py          # SQLite persistence for facts, FAQs, and chat sessions
 │   ├── intent_router.py     # Deterministic regex router for zero-token replies
 │   ├── messenger.py         # Async Meta Graph API client (typing indicator + send)
@@ -69,8 +70,10 @@ c:\antigravity learning
 │   └── safety_guardrails.md # Non-negotiable clinical safety constraints
 ├── tests/
 │   ├── test_api.py          # Integration tests for FastAPI endpoints
+│   ├── test_llm_provider.py # Provider selection & message-format unit tests
 │   └── run_live_scenarios.py# Live guardrail & dialect test runner
 ├── requirements.txt         # Dependencies
+├── requirements-dev.txt     # Dev/test dependencies (pytest)
 ├── .env.example             # Configuration template
 └── README.md
 ```
@@ -91,11 +94,26 @@ META_APP_SECRET=your_meta_app_secret_here
 # Custom secret verify token you choose (e.g., rawad_clinic_secret_2026)
 META_VERIFY_TOKEN=rawad_clinic_secret_2026
 
-# Google Gemini API
+# --- AI Provider (Layer 3 conversational engine) ---
+AI_PROVIDER=gemini               # gemini | claude | auto
+AI_FALLBACK_PROVIDER=            # optional: gemini | claude
+
+# Google Gemini (active engine)
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.5-flash
 GEMINI_FALLBACK_MODEL=gemini-flash-latest
+
+# Anthropic Claude (optional alternative engine)
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+CLAUDE_MODEL=claude-sonnet-5-5
+CLAUDE_FALLBACK_MODEL=claude-haiku-5-5
+CLAUDE_EFFORT=low              # low | medium | high | xhigh | max
 ```
+
+> **Switching engines**: set `AI_PROVIDER` to `gemini`, `claude`, or `auto`
+> (`auto` = Claude when `ANTHROPIC_API_KEY` is set, else Gemini).
+> Add `AI_FALLBACK_PROVIDER=gemini` to keep a second engine as a safety net.
+> All keys are read from the environment only and are never logged.
 
 ### 2. Start the FastAPI Server
 ```powershell
@@ -123,6 +141,9 @@ python -m pytest tests/test_api.py -q
   **always set it in production**.
 - **CORS**: closed by default. Set `CORS_ALLOW_ORIGINS` (comma-separated) only if a
   browser dashboard needs to call the API.
+- **Provider API keys** (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`): read from the
+  environment only, never hard-coded, never logged. On Render they are declared
+  with `sync: false` so they are entered in the dashboard, not committed.
 - **Secrets**: `.env` is git-ignored. Never commit real tokens.
 
 ---

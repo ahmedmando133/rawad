@@ -12,3 +12,6 @@ httpx>=0.27.0
 
 # Google Gemini SDK
 google-genai>=1.0.0
+
+# Anthropic Claude SDK
+anthropic>=0.50.0

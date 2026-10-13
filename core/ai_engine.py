@@ -2,9 +2,9 @@
 AI orchestration engine for the Pediatrician Messenger Assistant.
 
 Responsibilities:
-    - Load the "Brain" (knowledge/ files) and compose the Gemini system instruction.
+    - Load the "Brain" (knowledge/ files) and compose the system instruction.
     - Keep a short in-memory conversation history per Messenger user.
-    - Call Gemini via the official `google-genai` SDK and return a reply string.
+    - Call the configured LLM provider (Claude by default, Gemini fallback).
     - Run a pre-LLM emergency keyword check to ensure safety during API timeouts.
 
 This module contains NO transport logic (Meta/FastAPI live in other layers).
@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import threading
 from pathlib import Path
@@ -22,11 +21,10 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 
 from core.database import AssistantDatabase
 from core.intent_router import IntentRouter
+from core.llm_provider import build_llm_engine
 from core.safety_filter import (
     build_emergency_reply,
     detect_red_flags,
@@ -43,18 +41,14 @@ KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-DEFAULT_MODEL = "gemini-3.5-flash"
-DEFAULT_FALLBACK_MODEL = "gemini-flash-latest"
-DEFAULT_MAX_HISTORY_MESSAGES = 20  # user + model messages kept per conversation
+DEFAULT_MAX_HISTORY_MESSAGES = 20  # user + assistant messages kept per conversation
 UNAVAILABLE = "UNAVAILABLE"
-REQUEST_TIMEOUT_MS = 20_000  # per HTTP attempt
-MAX_ATTEMPTS = 2             # total attempts per model on transient errors (429/5xx)
 
 # Matches a whole value that is still a template placeholder, e.g. "[PHONE]".
 _PLACEHOLDER_RE = re.compile(r"^\s*\[[A-Z0-9_]+\]\s*$")
 
-# Returned when Gemini fails or returns nothing. Includes an emergency pointer
-# because we cannot know whether the unanswered message was urgent.
+# Returned when every LLM provider fails or returns nothing. Includes an
+# emergency pointer because we cannot know whether the unanswered message was urgent.
 FALLBACK_REPLY = (
     "ما عليش، صار عندنا مشكل تقني توا 🙏 حاول تراسلنا بعد شوية.\n"
     "لو الحالة مستعجلة، توجه لأقرب طوارئ مستشفى فورًا."
@@ -62,28 +56,20 @@ FALLBACK_REPLY = (
 
 
 class PediatricianAIAssistant:
-    """Gemini-backed assistant grounded strictly in the knowledge/ layer."""
+    """LLM-backed assistant (Claude / Gemini) grounded strictly in knowledge/."""
 
     def __init__(
         self,
         knowledge_dir: Path | str = KNOWLEDGE_DIR,
-        model: str | None = None,
-        fallback_model: str | None = None,
         max_history_messages: int = DEFAULT_MAX_HISTORY_MESSAGES,
     ) -> None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "GEMINI_API_KEY is not set. Copy .env.example to .env and add your key."
-            )
-
         self.knowledge_dir = Path(knowledge_dir)
-        self.model = model or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
-        self.fallback_model = (
-            fallback_model
-            or os.getenv("GEMINI_FALLBACK_MODEL", DEFAULT_FALLBACK_MODEL)
-        )
         self.max_history_messages = max_history_messages
+
+        # --- Layer 3: LLM engine (Claude by default, Gemini fallback) ------- #
+        self.llm = build_llm_engine()
+        self.provider_name = self.llm.primary_name
+        self.model = self.llm.primary_label
 
         # --- Local SQLite Database & Zero-Token Intent Router --------------- #
         self.db = AssistantDatabase()
@@ -105,28 +91,8 @@ class PediatricianAIAssistant:
 
         self.system_instruction = self._build_system_instruction()
 
-        # --- Gemini client & config ---------------------------------------- #
-        self._client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(
-                timeout=REQUEST_TIMEOUT_MS,
-                retry_options=types.HttpRetryOptions(
-                    attempts=MAX_ATTEMPTS,
-                    initial_delay=1.0,
-                    max_delay=8.0,
-                    http_status_codes=[429, 500, 502, 503, 504],
-                ),
-            ),
-        )
-        self._config = types.GenerateContentConfig(
-            system_instruction=self.system_instruction,
-            temperature=0.4,          # low creativity: factual, consistent replies
-            max_output_tokens=2048,   # provides headroom for internal reasoning while prompt enforces brevity
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        )
-
         # --- In-memory conversation store ---------------------------------- #
-        self._histories: dict[str, list[types.Content]] = {}
+        self._histories: dict[str, list[dict[str, str]]] = {}
         self._lock = threading.Lock()
 
     # ======================================================================= #
@@ -138,7 +104,9 @@ class PediatricianAIAssistant:
         if not user_message:
             return "وعليكم السلام 🌷 كيف نقدر نعاونك؟"
 
-        user_turn = types.Content(role="user", parts=[types.Part(text=user_message)])
+        user_message = (user_message or "").strip()
+        if not user_message:
+            return "وعليكم السلام 🌷 كيف نقدر نعاونك؟"
 
         # --- 1. Deterministic Pre-LLM Emergency Filter (0 tokens) ---
         red_flags = detect_red_flags(user_message)
@@ -153,78 +121,80 @@ class PediatricianAIAssistant:
                 emergency_number=self.emergency_number,
                 nearest_facility=self.nearest_facility,
             )
-            self._record_turn(user_id, user_turn, reply)
+            self._record_turn(user_id, user_message, reply)
             return reply
 
         # --- 2. Deterministic Admin Intent & FAQ Router (0 tokens) ---
         route_res = self.router.route(user_message)
         if route_res.matched and route_res.direct_reply:
             logger.info(
-                "[Zero-Token Hit] user_id=%s intent=%s -> Bypassed Gemini (0 tokens)",
+                "[Zero-Token Hit] user_id=%s intent=%s -> Bypassed LLM (0 tokens)",
                 user_id,
                 route_res.intent,
             )
-            self._record_turn(user_id, user_turn, route_res.direct_reply)
+            self._record_turn(user_id, user_message, route_res.direct_reply)
             return route_res.direct_reply
 
-        with self._lock:
-            history = list(self._histories.get(user_id, []))
+        history = self._get_history(user_id)
 
-        # --- 3. Gemini Generation (with automatic fallback model) ---
-        reply: str | None = None
-        models_to_try = [self.model]
-        if self.fallback_model and self.fallback_model != self.model:
-            models_to_try.append(self.fallback_model)
-
-        for current_model in models_to_try:
-            try:
-                response = self._client.models.generate_content(
-                    model=current_model,
-                    contents=[*history, user_turn],
-                    config=self._config,
-                )
-                text = (response.text or "").strip()
-                if text:
-                    reply = text
-                    if current_model != self.model:
-                        logger.info(
-                            "Generated reply with fallback model=%s for user_id=%s",
-                            current_model,
-                            user_id,
-                        )
-                    break
-                logger.warning("Empty response from model=%s for user_id=%s", current_model, user_id)
-            except Exception as e:
-                logger.warning(
-                    "Model %s failed for user_id=%s: %s (%s)",
-                    current_model,
-                    user_id,
-                    type(e).__name__,
-                    e,
-                )
+        # --- 3. LLM Generation (configured engine + optional fallbacks) ---
+        reply = self.llm.generate(
+            system_instruction=self.system_instruction,
+            history=history,
+            user_message=user_message,
+        )
 
         if not reply:
-            logger.error("All models failed for user_id=%s. Returning fallback reply.", user_id)
+            logger.error(
+                "All LLM providers failed for user_id=%s. Returning fallback reply.",
+                user_id,
+            )
             return FALLBACK_REPLY
 
-        self._record_turn(user_id, user_turn, reply)
+        self._record_turn(user_id, user_message, reply)
         return reply
 
-    def _record_turn(self, user_id: str, user_turn: types.Content, reply: str) -> None:
+    def _get_history(self, user_id: str) -> list[dict[str, str]]:
+        """Return the user's conversation history (warm memory or SQLite).
+
+        On a cold process (e.g. after a restart) the in-memory store is empty, so
+        we rebuild the recent context from the persistent SQLite log. This keeps
+        a parent's conversation continuous across deploys/restarts.
+        """
+        with self._lock:
+            if user_id in self._histories:
+                return list(self._histories[user_id])
+
+        history: list[dict[str, str]] = []
+        try:
+            rows = self.db.get_recent_history(user_id, limit=self.max_history_messages)
+            for row in rows:
+                text = (row.get("content") or "").strip()
+                if not text:
+                    continue
+                role = "assistant" if row.get("role") == "model" else "user"
+                history.append({"role": role, "text": text})
+        except Exception:
+            logger.exception("Failed to load history from DB for user_id=%s", user_id)
+
+        with self._lock:
+            self._histories[user_id] = list(history)
+        return history
+
+    def _record_turn(self, user_id: str, user_message: str, reply: str) -> None:
         """Record turn in both SQLite persistent DB and active session memory."""
         # 1. Persistent DB
         try:
-            u_text = user_turn.parts[0].text if user_turn.parts else ""
-            self.db.save_message(user_id, "user", u_text)
+            self.db.save_message(user_id, "user", user_message)
             self.db.save_message(user_id, "model", reply)
         except Exception:
             logger.exception("Failed to record turn in DB for user_id=%s", user_id)
 
-        # 2. In-memory session
-        model_turn = types.Content(role="model", parts=[types.Part(text=reply)])
+        # 2. In-memory session (neutral, provider-agnostic format)
         with self._lock:
             stored = self._histories.setdefault(user_id, [])
-            stored.extend([user_turn, model_turn])
+            stored.append({"role": "user", "text": user_message})
+            stored.append({"role": "assistant", "text": reply})
             if len(stored) > self.max_history_messages:
                 del stored[: len(stored) - self.max_history_messages]
 

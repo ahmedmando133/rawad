@@ -25,3 +25,8 @@ Thumbs.db
 # Logs & Database
 *.log
 data/*.db
+
+# Local agent / tooling artifacts (not part of the application)
+.agents/
+skills-lock.json
+manual_test.py

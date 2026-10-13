@@ -1,0 +1,6 @@
+# Normalize line endings to LF inside the repository, check out native per-OS.
+# This keeps diffs clean and avoids CRLF/LF churn across Windows/Linux/macOS.
+* text=auto
+
+# Windows batch files must always be checked out with CRLF.
+*.bat text eol=crlf

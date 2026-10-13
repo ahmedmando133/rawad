@@ -1,8 +1,6 @@
 # Pediatrician AI Assistant — Facebook Page & Messenger (Libya)
 
-<!-- CI badge: once the repo is on GitHub, replace OWNER/REPO and uncomment:
-![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)
--->
+![CI](https://github.com/ahmedmando133/rawad/actions/workflows/ci.yml/badge.svg)
 
 A production-ready AI-powered Facebook Page and Messenger Assistant for **Dr. Rawad Shehima (الدكتور رواد شحيمة)** at **Al-Ribat Polyclinic (مجمع عيادات الرباط)** in Tajoura, Tripoli, Libya.
 

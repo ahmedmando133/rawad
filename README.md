@@ -1,5 +1,9 @@
 # Pediatrician AI Assistant — Facebook Page & Messenger (Libya)
 
+<!-- CI badge: once the repo is on GitHub, replace OWNER/REPO and uncomment:
+![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)
+-->
+
 A production-ready AI-powered Facebook Page and Messenger Assistant for **Dr. Rawad Shehima (الدكتور رواد شحيمة)** at **Al-Ribat Polyclinic (مجمع عيادات الرباط)** in Tajoura, Tripoli, Libya.
 
 Built with **FastAPI**, **Google Gemini** (active conversational engine), **SQLite**, and the **Meta Graph API**. An optional **Anthropic Claude** engine is also supported and can be enabled via configuration.
@@ -127,8 +131,12 @@ curl http://localhost:8000/health
 ### 3. Run the Test Suite
 ```powershell
 pip install -r requirements-dev.txt
-python -m pytest tests/test_api.py -q
+python -m pytest tests/ -q
 ```
+The suite is **hermetic**: it needs no real API keys and makes no network calls,
+so it passes with or without a `.env`. It runs automatically on every push and
+pull request via GitHub Actions (`.github/workflows/ci.yml`) across Python
+3.10, 3.11 and 3.12.
 
 ---
 

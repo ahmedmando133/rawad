@@ -24,6 +24,14 @@ TEST_APP_SECRET = "test_app_secret_456"
 os.environ["META_VERIFY_TOKEN"] = TEST_VERIFY_TOKEN
 os.environ["META_APP_SECRET"] = TEST_APP_SECRET
 
+# A dummy provider key lets the assistant construct offline (clients are lazy
+# and make no network call). The exercised query is a zero-token Layer-2 hit,
+# so these tests never reach an LLM. This keeps the suite hermetic: it passes
+# with no real .env / secrets, exactly like CI.
+os.environ["AI_PROVIDER"] = "gemini"
+os.environ.pop("AI_FALLBACK_PROVIDER", None)
+os.environ["GEMINI_API_KEY"] = "test-gemini-key"
+
 from api.main import app
 
 client = TestClient(app)
